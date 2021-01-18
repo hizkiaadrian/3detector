@@ -42,8 +42,3 @@ class BundleGenerator:
         
         for img_path in img_paths:
             yield DataBundle(img_path, calib)
-
-kitti_path = '/scratch/local/hdd/hizkia/kitti'
-a = BundleGenerator(kitti_path)
-
-n = input()
