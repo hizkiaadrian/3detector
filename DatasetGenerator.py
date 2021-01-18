@@ -1,4 +1,5 @@
 from BundleGenerator import BundleGenerator
+from Car import Car
 from os import listdir
 
 def is_occluded(larger_box, smaller_box):
@@ -28,4 +29,8 @@ class Dataset:
     def load_dataset(self):
         for bundle in self.bundle_generator:
             valid_boxes = get_valid_boxes(bundle.boxes, bundle.image.shape)
-
+            for i, box in enumerate(valid_boxes):
+                image = bundle.image[box[0]:box[2], box[1]:box[3], :]
+                depth = bundle.depth[box[0]:box[2], box[1]:box[3]]
+                instance = bundle.instances[box[0]:box[2], box[1]:box[3]]
+                yield Car(bundle.img_path, image, depth, box, instance, bundle.camera, i)
