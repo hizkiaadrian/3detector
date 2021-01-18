@@ -28,7 +28,7 @@ class BundleGenerator:
                 )
             )
         )
-        calib = pykitti.raw(self.base_dir, date, drives[0]).calib
+        camera = pykitti.raw(self.base_dir, date, drives[0]).calib.K_cam2
         
         img_paths = sorted(
             sum(
@@ -41,4 +41,4 @@ class BundleGenerator:
         )
         
         for img_path in img_paths:
-            yield DataBundle(img_path, calib)
+            yield DataBundle(img_path, camera)
