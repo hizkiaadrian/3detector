@@ -1,6 +1,9 @@
 from BundleGenerator import BundleGenerator
 from Car import Car
 from os import listdir
+from cv2 import resize, INTER_NEAREST
+from numpy import array, zeros
+from numpy.linalg import inv
 
 def is_occluded(larger_box, smaller_box):
     return not (larger_box[2] <= smaller_box[0] or larger_box[0] >= smaller_box[2] or larger_box[3] <= smaller_box[1] or larger_box[1] >= smaller_box[3])
@@ -19,9 +22,11 @@ def get_valid_boxes(boxes, img_dimension):
                 box_props[j]['occ'] = True
 
     #Remove truncated boxes
-    valid_boxes = list(filter(lambda box: box[0] >= 0 and box[1] >= 0 and box[2] < height and box[3] < width, [box['box'] for box in box_props if not box['occ']]))
-
-    return valid_boxes
+    return list(
+        filter(lambda box: box[0] >= 0 and box[1] >= 0 and box[2] < height and box[3] < width, 
+                [box['box'] for box in box_props if not box['occ']]
+            )
+        )
 
 class Dataset:
     def __init__(self, base_dir, date = None, reference_rectangle = (64, 128), min_original_rectangle = (16, 32)):
@@ -61,7 +66,24 @@ class Dataset:
                     box[0] -= int(additional_height)
                     box[2] += int(additional_height)
 
+                #Retrieve true/world coordinates
+                camera_inv = inv(bundle.camera)
+
+                world_coordinates = zeros((box[2]-box[0],box[3]-box[1],3))
+                for x in range(box[1], box[3]):
+                    for y in range(box[0], box[2]):
+                        try:
+                            world_coordinates[y-box[0], x-box[1],:] = camera_inv @ [x, y, 1] * bundle.depth[y, x]
+                        except:
+                            continue
+
                 image = bundle.image[box[0]:box[2], box[1]:box[3], :]
                 depth = bundle.depth[box[0]:box[2], box[1]:box[3]]
                 instance = bundle.instances[box[0]:box[2], box[1]:box[3]]
-                yield Car(bundle.img_path, image, depth, box, instance, bundle.camera, i)
+
+                image = resize(image, (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST)
+                depth = resize(depth, (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST)
+                instance = resize(instance, (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST)
+                world_coordinates = resize(world_coordinates, (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST)
+
+                yield Car(bundle.img_path, image, depth, instance, world_coordinates, i)
