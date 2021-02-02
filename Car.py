@@ -1,14 +1,19 @@
 from matplotlib import pyplot as plt
-import plotly.graph_objects as go
-from numpy import multiply
+from numpy import multiply, array, median
+import cv2
+import torch
+from torch.utils.data import Dataset, DataLoader
+import os
+import pickle
 
 class Car:
-    def __init__(self, base_image_path, image, depth, instance, world_coordinates, car_index):
-        self.base_image_path = base_image_path
+    def __init__(self, image, depth, instance, camera, base_camera, car_index):
         self.image = image
         self.depth = depth
+        self.normalized_depth = depth - median(depth)
         self.instance = instance
-        self.world_coordinates = world_coordinates
+        self.camera = camera
+        self.base_camera = base_camera
         self.car_index = car_index
 
     def plot(self):
@@ -20,49 +25,29 @@ class Car:
         ax[1].set_title('Depth')
         ax[2].set_title('Instance map')
 
-    def plot_3d(self, type=None, isolateCar=False):
-        x = self.world_coordinates[:,:,0].ravel() if isolateCar else multiply(self.world_coordinates[:,:,0], self.instance >0).ravel()
-        x = x[x != 0]
-        y = self.world_coordinates[:,:,1].ravel() if isolateCar else multiply(self.world_coordinates[:,:,1], self.instance >0).ravel()
-        y = y[y != 0]
-        z = self.world_coordinates[:,:,2].ravel() if isolateCar else multiply(self.world_coordinates[:,:,2], self.instance >0).ravel()
-        z = z[z != 0]
+    def get_box(self):
+        ref_height, ref_width = self.image.shape[:2]
 
-        fig = go.Figure(data=[go.Scatter3d(
-            x=x, y=y, z=z,
-            mode='markers',
-            marker=dict(size=3, color=z, colorscale='Sunset')
-        )])
+        original_width = round(ref_width * self.base_camera[0,0] / self.camera[0,0])
+        original_height = round(ref_height * self.base_camera[1,1] / self.camera[1,1])
 
-        if type=='full':
-            fig.update_layout(
-                    margin=dict(l=0, r=0, t=20,b=20),
-                    scene = dict(
-                        aspectmode='manual',
-                        aspectratio=dict(x=2, y=2, z=5),
-                        xaxis = dict(title='Width', range=[-20,20]),
-                        yaxis = dict(title='Height', range=[-20,20]),
-                        zaxis = dict(title='Depth', range=[0,100])
-                    ),
-                    height=800
-                )
-        else:
-            fig.update_layout(
-                margin=dict(l=0, r=0, t=20,b=20),
-                scene = dict(
-                    aspectmode='manual',
-                    aspectratio=dict(x=3, y=1, z=10),
-                    xaxis_title="Width",
-                    yaxis_title="Height",
-                    zaxis_title="Depth"
-                ),
-                height=800
-            )
+        top_left_vertex_x = round(base_camera[0, 2] - (self.camera[0, 2] * original_width) / ref_width)
+        top_left_vertex_y = round(base_camera[1, 2] - (self.camera[1, 2] * original_height) / ref_height)
 
-        fig.update_layout(scene_camera=dict(
-                        eye=dict(x=1.25, y=1.25, z=1.25),
-                        up=dict(x=0,y=-1,z=0),
-                        center=dict(x=0,y=0,z=0)
-                    ))
+        return [top_left_vertex_y, top_left_vertex_x, top_left_vertex_y + original_height, top_left_vertex_x + original_width]
 
-        return fig
+class CarDataset(Dataset):
+    def __init__(self, base_path):
+        self.base_path = base_path
+        
+    def __len__(self):
+        return len(os.listdir(self.base_path))
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        with open(f'{self.base_path}/{idx}.pkl','rb') as input:
+            car = pickle.load(input)
+            
+        return car

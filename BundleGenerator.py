@@ -18,17 +18,6 @@ class DataBundle:
 
         self._resize()
 
-    def plot_image(self):
-        fig, ax = plt.subplots(1, figsize=(20,30))
-
-        ax.imshow(self.image)
-
-        for box in self.boxes:
-            rect = Rectangle((box[1], box[0]), box[3]-box[1], box[2]-box[0], edgecolor='r', facecolor='none')
-            ax.add_patch(rect)
-
-        plt.show()
-
     def plot(self):
         fig, ax = plt.subplots(3, figsize=(70,30))
         ax[0].imshow(self.image)
@@ -75,15 +64,15 @@ class BundleGenerator:
     def load(self,date=None):
         if date is None:
             for date in self.dates:
-                return self._load_image_paths(date)
+                return self._yield_images(date)
 
         elif date in self.dates:
-            return self._load_image_paths(date)
+            return self._yield_images(date)
 
         else:
             raise ValueError
 
-    def _load_image_paths(self, date):
+    def _yield_images(self, date):
         drives = sorted(
             list(
                 map(
