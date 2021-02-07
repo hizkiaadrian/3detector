@@ -24,6 +24,7 @@ class ExpectationMaximization:
         self.reference_rectangle=reference_rectangle
         self.min_original_rectangle=min_original_rectangle
         self.max_iters = max_iters
+        self._result = None
 
     def run(self):
         generator = CarGenerator(
@@ -53,7 +54,7 @@ class ExpectationMaximization:
                 mean=mean,
                 cov=cov,
                 optimize_direction=optimize_direction
-            )
+            ).load_dataset()
 
             temp_D = np.array([_help(i,x) for i,x in enumerate(generator)]).T
 
@@ -72,4 +73,4 @@ class ExpectationMaximization:
                 break
 
         print(f"EM stopped with a score of {score}")
-        return D, mean, cov
+        self._result = {"D": D, "mean":mean, "cov":cov}
