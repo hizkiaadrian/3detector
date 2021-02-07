@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from math import floor, ceil
+from os.path import exists
 
 class DataBundle:
     def __init__(self, img_path, camera):
@@ -63,8 +64,7 @@ class BundleGenerator:
 
     def load(self,date=None):
         if date is None:
-            for date in self.dates:
-                return self._yield_images(date)
+            return self._yield_images()
 
         elif date in self.dates:
             return self._yield_images(date)
@@ -72,26 +72,62 @@ class BundleGenerator:
         else:
             raise ValueError
 
-    def _yield_images(self, date):
-        drives = sorted(
-            list(
-                map(
-                    lambda x: x.split('_')[-2],
-                    filter(lambda x: not x.endswith('txt'), listdir(f'{self.base_dir}/{date}'))
+    def _yield_images(self, date = None):
+        if not date:
+            for date in self.dates:
+                drives = sorted(
+                    list(
+                        map(
+                            lambda x: x.split('_')[-2],
+                            filter(lambda x: not x.endswith('txt'), listdir(f'{self.base_dir}/{date}'))
+                        )
+                    )
+                )
+                camera = pykitti.raw(self.base_dir, date, drives[0]).calib.K_cam2
+                
+                img_paths = sorted(
+                    sum(
+                        map(
+                            lambda x: glob(
+                                f'{self.base_dir}/{date}/{date}_drive_{x}_sync/image_02/data/*.jpg'),
+                                drives
+                            ), []
+                    )
+                )
+                
+                for img_path in img_paths:
+                    try:
+                        if not exists(img_path.replace('data', 'depth').replace('jpg','npz')):
+                            raise FileNotFoundError("Depth file not found")
+                        yield DataBundle(img_path, camera)
+                    except:
+                        print(f"Error with {img_path}")
+
+        else:
+            drives = sorted(
+                list(
+                    map(
+                        lambda x: x.split('_')[-2],
+                        filter(lambda x: not x.endswith('txt'), listdir(f'{self.base_dir}/{date}'))
+                    )
                 )
             )
-        )
-        camera = pykitti.raw(self.base_dir, date, drives[0]).calib.K_cam2
-        
-        img_paths = sorted(
-            sum(
-                map(
-                    lambda x: glob(
-                        f'{self.base_dir}/{date}/{date}_drive_{x}_sync/image_02/data/*.jpg'),
-                        drives
-                    ), []
+            camera = pykitti.raw(self.base_dir, date, drives[0]).calib.K_cam2
+            
+            img_paths = sorted(
+                sum(
+                    map(
+                        lambda x: glob(
+                            f'{self.base_dir}/{date}/{date}_drive_{x}_sync/image_02/data/*.jpg'),
+                            drives
+                        ), []
+                )
             )
-        )
-        
-        for img_path in img_paths:
-            yield DataBundle(img_path, camera)
+            
+            for img_path in img_paths:
+                try:
+                    if not exists(img_path.replace('data', 'depth').replace('jpg','npz')):
+                        raise FileNotFoundError("Depth file not found")
+                    yield DataBundle(img_path, camera)
+                except FileNotFoundError:
+                    continue

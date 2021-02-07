@@ -2,8 +2,9 @@ from BundleGenerator import BundleGenerator
 from Car import Car
 from os import listdir
 from cv2 import resize, INTER_NEAREST
-from numpy import array, zeros, block
+from numpy import array, zeros, block, median
 from numpy.linalg import inv
+from math import ceil
 
 def is_occluded(larger_box, smaller_box):
     return not (larger_box[2] <= smaller_box[0] or larger_box[0] >= smaller_box[2] or larger_box[3] <= smaller_box[1] or larger_box[1] >= smaller_box[3])
@@ -28,13 +29,79 @@ def get_valid_boxes(boxes, img_dimension):
             )
         )
 
+def loosen_box(box, reference_rectangle, base_image_shape):
+    hw_ratio = reference_rectangle[0] / reference_rectangle[1]
+    box_ratio = (box[2] - box[0]) / (box[3] - box[1])
+
+    new_box = box.copy()
+
+    #Either resize height or width depending on the original dimension
+    if box_ratio > hw_ratio:
+        additional_width = ((box[2] - box[0]) / hw_ratio - (box[3] - box[1])) / 2
+        #Remove box if resized box would be truncated
+        if (box[1] - additional_width < 0) or (box[3] + additional_width >= base_image_shape[1]):
+            return None
+        
+        new_box[1] -= int(additional_width)
+        new_box[3] += int(additional_width)
+    elif box_ratio < hw_ratio:
+        additional_height = ((box[3] - box[1]) * hw_ratio - (box[2] - box[0])) / 2
+        #Remove box if resized box would be truncated
+        if (box[0] - additional_height < 0) or (box[2] + additional_height >= base_image_shape[0]):
+            return None
+        
+        new_box[0] -= int(additional_height)
+        new_box[2] += int(additional_height)
+
+    return new_box
+
+def get_iou(box1, box2):
+    intersection = max(0, min(box1[2], box2[2]) - max(box1[0], box2[0])) * max(0, min(box1[3], box2[3]) - max(box1[1], box2[1]))
+    union = (box1[2]-box1[0]) * (box1[3]-box1[1]) + (box2[2]-box2[0]) * (box2[3]-box2[1]) - intersection
+    return intersection / union
+
+def optimize_box(box, mean, inv_cov, depth, reference_rectangle, constraint_box, base_image_shape, min_intersection_ratio=0.95):
+    crop = resize(
+                    depth[box[0]:box[2], box[1]:box[3]], 
+                    (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
+                )
+
+    min_score = ((crop - median(crop)).ravel() - mean).T @ inv_cov @ ((crop - median(crop)).ravel() - mean)
+
+    optimal_box = box.copy()
+
+    hw_ratio = reference_rectangle[0] / reference_rectangle[1]
+    for top_y in range(constraint_box[0]):
+        for top_x in range(constraint_box[1]):
+            for bottom_y in range(constraint_box[2], base_image_shape[0]):
+                bottom_x = top_x + (bottom_y - top_y) / hw_ratio
+                if not bottom_x.is_integer():
+                    continue
+                elif bottom_x < base_image_shape[1] and get_iou(box, [top_y, top_x, bottom_y, ceil(bottom_x)]) > min_intersection_ratio:
+                    crop = resize(
+                        depth[top_y:bottom_y, top_x:ceil(bottom_x)],
+                        (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
+                    )
+                    score = ((crop - median(crop)).ravel() - mean).T @ inv_cov @ ((crop - median(crop)).ravel() - mean)
+                    if score < min_score:
+                        min_score = score
+                        optimal_box = [top_y, top_x, bottom_y, ceil(bottom_x)]
+                else:
+                    break
+
+    return optimal_box
+
 class CarGenerator:
     def __init__(self, base_dir, date = None, reference_rectangle = (64, 128), min_original_rectangle = (16, 32), mean = None, cov = None):
         if date is not None and date not in listdir(base_dir):
             raise ValueError
-        self.bundle_generator = BundleGenerator(base_dir).load(date)
+        self._bg_object = BundleGenerator(base_dir)
+        self.bundle_generator = self._bg_object.load(date)
         self.reference_rectangle = reference_rectangle
         self.min_original_rectangle = min_original_rectangle
+        self.mean = mean
+        self.cov = cov
+        self.inv_cov = inv(cov) if cov is not None else None
 
     def load_dataset(self):
         for bundle in self.bundle_generator:
@@ -44,43 +111,30 @@ class CarGenerator:
                 if (box[2] - box[0] < self.min_original_rectangle[0]) or (box[3] - box[1] < self.min_original_rectangle[1]):
                     continue
 
-                #Resize box to have the correct h/w ratio
-                hw_ratio = self.reference_rectangle[0] / self.reference_rectangle[1]
-                box_ratio = (box[2] - box[0]) / (box[3] - box[1])
+                loosened_box = loosen_box(box, self.reference_rectangle, bundle.image.shape)
+                if not loosened_box:
+                    continue
 
-                #Either resize height or width depending on the original dimension
-                if box_ratio > hw_ratio:
-                    additional_width = ((box[2] - box[0]) / hw_ratio - (box[3] - box[1])) / 2
-                    #Remove box if resized box would be truncated
-                    if (box[1] - additional_width < 0) or (box[3] + additional_width >= bundle.image.shape[1]):
-                        continue
-                    
-                    box[1] -= int(additional_width)
-                    box[3] += int(additional_width)
-                elif box_ratio < hw_ratio:
-                    additional_height = ((box[3] - box[1]) * hw_ratio - (box[2] - box[0])) / 2
-                    #Remove box if resized box would be truncated
-                    if (box[0] - additional_height < 0) or (box[2] + additional_width >= bundle.image.shape[0]):
-                        continue
-                    
-                    box[0] -= int(additional_height)
-                    box[2] += int(additional_height)
+                if (self.mean is not None) and (self.inv_cov is not None):
+                    optimized_box = optimize_box(loosened_box, self.mean, self.inv_cov, bundle.depth, self.reference_rectangle, box, bundle.image.shape)
+                else:
+                    optimized_box = loosened_box
 
-                image = resize(bundle.image[box[0]:box[2], box[1]:box[3], :], (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST)
+                image = resize(bundle.image[optimized_box[0]:optimized_box[2], optimized_box[1]:optimized_box[3], :], (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST)
 
                 depth = resize(
-                    bundle.depth[box[0]:box[2], box[1]:box[3]], 
+                    bundle.depth[optimized_box[0]:optimized_box[2], optimized_box[1]:optimized_box[3]], 
                     (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST
                 )
                 instance = resize(
-                    bundle.instances[box[0]:box[2], box[1]:box[3]], 
+                    bundle.instances[optimized_box[0]:optimized_box[2], optimized_box[1]:optimized_box[3]], 
                     (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST
                 )
 
                 camera = array([
-                    [self.reference_rectangle[1]/(box[3]-box[1]), 0, 0],
-                    [0, self.reference_rectangle[0]/(box[2]-box[0]), 0],
+                    [self.reference_rectangle[1]/(optimized_box[3]-optimized_box[1]), 0, 0],
+                    [0, self.reference_rectangle[0]/(optimized_box[2]-optimized_box[0]), 0],
                     [0, 0, 1]
-                ]) @ (bundle.camera + block([zeros((3,2)), array([-box[1], -box[0], 0]).reshape((-1,1))]))
+                ]) @ (bundle.camera + block([zeros((3,2)), array([-optimized_box[1], -optimized_box[0], 0]).reshape((-1,1))]))
 
                 yield Car(image, depth, instance, camera, bundle.camera, i)
