@@ -73,37 +73,8 @@ class BundleGenerator:
             raise ValueError
 
     def _yield_images(self, date = None):
-        if not date:
-            for date in self.dates:
-                drives = sorted(
-                    list(
-                        map(
-                            lambda x: x.split('_')[-2],
-                            filter(lambda x: not x.endswith('txt'), listdir(f'{self.base_dir}/{date}'))
-                        )
-                    )
-                )
-                camera = pykitti.raw(self.base_dir, date, drives[0]).calib.K_cam2
-                
-                img_paths = sorted(
-                    sum(
-                        map(
-                            lambda x: glob(
-                                f'{self.base_dir}/{date}/{date}_drive_{x}_sync/image_02/data/*.jpg'),
-                                drives
-                            ), []
-                    )
-                )
-                
-                for img_path in img_paths:
-                    try:
-                        if not exists(img_path.replace('data', 'depth').replace('jpg','npz')):
-                            raise FileNotFoundError("Depth file not found")
-                        yield DataBundle(img_path, camera)
-                    except:
-                        print(f"Error with {img_path}")
-
-        else:
+        dates = self.dates if not date else [date]
+        for date in dates:
             drives = sorted(
                 list(
                     map(
@@ -129,5 +100,5 @@ class BundleGenerator:
                     if not exists(img_path.replace('data', 'depth').replace('jpg','npz')):
                         raise FileNotFoundError("Depth file not found")
                     yield DataBundle(img_path, camera)
-                except FileNotFoundError:
+                except:
                     continue
