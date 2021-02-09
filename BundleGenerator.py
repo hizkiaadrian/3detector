@@ -53,7 +53,7 @@ class DataBundle:
         transformation_matrix = np.array([
                                     [width_ratio, 0, 0],
                                     [0, height_ratio, 0],
-                                    [0, 0, 1]
+                                    [0, 0, 1]int(self.reference_rectangle[0] * self.reference_rectangle[1])
                                 ])
         self.camera = transformation_matrix @ self.camera
         

@@ -42,9 +42,10 @@ class ExpectationMaximization:
 
         mean = D.mean(axis = 1)
         A = D - mean.reshape((-1,1))
-        cov = np.cov(A)
-        if not np.all(np.linalg.eigvals(cov) > 0):
-            cov += np.eye(cov.shape[0])
+        # cov = np.cov(A)
+        # if not np.all(np.linalg.eigvals(cov) > 0):
+        #     cov += np.eye(cov.shape[0])
+        cov = np.eye(int(self.reference_rectangle[0] * self.reference_rectangle[1]))
 
         score = calculate_EM_score(A, cov)
         print(f"Initializing EM yields a score of {score}...")
@@ -66,9 +67,10 @@ class ExpectationMaximization:
 
             temp_mean = temp_D.mean(axis=1)
             temp_A = temp_D - temp_mean.reshape((-1,1))
-            temp_cov = np.cov(temp_A)
-            if not np.all(np.linalg.eigvals(temp_cov) > 0):
-                temp_cov += np.eye(temp_cov.shape[0])
+            # temp_cov = np.cov(temp_A)
+            # if not np.all(np.linalg.eigvals(temp_cov) > 0):
+            #     temp_cov += np.eye(temp_cov.shape[0])
+            temp_cov = np.eye(int(self.reference_rectangle[0] * self.reference_rectangle[1]))
 
             temp_score = calculate_EM_score(temp_A, temp_cov)
             print(f"EM iteration {iter_num} yields a score of {temp_score}")
