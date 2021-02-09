@@ -4,6 +4,7 @@ from os import listdir
 from cv2 import resize, INTER_NEAREST
 from numpy import array, zeros, block, median
 from numpy.linalg import inv
+from scipy.stats import mode
 from math import ceil
 from enum import Enum
 
@@ -66,13 +67,28 @@ class Direction(Enum):
     HORIZONTAL = 1
     ALL = 2
 
-def optimize_box(box, mean, inv_cov, depth, reference_rectangle, constraint_box, base_image_shape, direction=Direction.VERTICAL, min_intersection_ratio=0.8):
+def optimize_box(box,
+                 mean,
+                 inv_cov,
+                 depth, 
+                 instances, 
+                 reference_rectangle, 
+                 constraint_box, 
+                 base_image_shape,
+                 depth_normalization_func, 
+                 direction=Direction.VERTICAL, 
+                 min_intersection_ratio=0.8):
     crop = resize(
                     depth[box[0]:box[2], box[1]:box[3]], 
                     (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
                 )
+    instance = resize(
+                    instances[box[0]:box[2], box[1]:box[3]],
+                    (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
+                )
 
-    min_score = ((crop - median(crop)).ravel() - mean).T @ inv_cov @ ((crop - median(crop)).ravel() - mean)
+    normalized_crop = depth_normalization_func(crop, instance)
+    min_score = (normalized_crop.ravel() - mean).T @ inv_cov @ (normalized_crop.ravel() - mean)
 
     optimal_box = box.copy()
 
@@ -84,7 +100,12 @@ def optimize_box(box, mean, inv_cov, depth, reference_rectangle, constraint_box,
                     depth[top_y:bottom_y, box[1]:box[3]],
                     (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
                 )
-                score = ((crop - median(crop)).ravel() - mean).T @ inv_cov @ ((crop - median(crop)).ravel() - mean)
+                instance = resize(
+                    instances[top_y:bottom_y, box[1]:box[3]],
+                    (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
+                )
+                normalized_crop = depth_normalization_func(crop, instance)
+                score = (normalized_crop.ravel() - mean).T @ inv_cov @ (normalized_crop.ravel() - mean)
                 if score < min_score:
                     min_score = score
                     optimal_box = [top_y, box[1], bottom_y, box[3]]
@@ -97,7 +118,12 @@ def optimize_box(box, mean, inv_cov, depth, reference_rectangle, constraint_box,
                     depth[top_y:bottom_y, box[1]:box[3]],
                     (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
                 )
-                score = ((crop - median(crop)).ravel() - mean).T @ inv_cov @ ((crop - median(crop)).ravel() - mean)
+                instance = resize(
+                    instances[top_y:bottom_y, box[1]:box[3]],
+                    (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
+                )
+                normalized_crop = depth_normalization_func(crop, instance)
+                score = (normalized_crop.ravel() - mean).T @ inv_cov @ (normalized_crop.ravel() - mean)
                 if score < min_score:
                     min_score = score
                     optimal_box = [top_y, box[1], bottom_y, box[3]]
@@ -112,7 +138,12 @@ def optimize_box(box, mean, inv_cov, depth, reference_rectangle, constraint_box,
                     depth[box[0]:box[2], top_x:bottom_x],
                     (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
                 )
-                score = ((crop - median(crop)).ravel() - mean).T @ inv_cov @ ((crop - median(crop)).ravel() - mean)
+                instance = resize(
+                    instances[box[0]:box[2], top_x:bottom_x],
+                    (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
+                )
+                normalized_crop = depth_normalization_func(crop, instance)
+                score = (normalized_crop.ravel() - mean).T @ inv_cov @ (normalized_crop.ravel() - mean)
                 if score < min_score:
                     min_score = score
                     optimal_box = [box[0], top_x, box[2], bottom_x]
@@ -125,7 +156,12 @@ def optimize_box(box, mean, inv_cov, depth, reference_rectangle, constraint_box,
                     depth[box[0]:box[2], top_x:bottom_x],
                     (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
                 )
-                score = ((crop - median(crop)).ravel() - mean).T @ inv_cov @ ((crop - median(crop)).ravel() - mean)
+                instance = resize(
+                    instances[box[0]:box[2], top_x:bottom_x],
+                    (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
+                )
+                normalized_crop = depth_normalization_func(crop, instance)
+                score = (normalized_crop.ravel() - mean).T @ inv_cov @ (normalized_crop.ravel() - mean)
                 if score < min_score:
                     min_score = score
                     optimal_box = [box[0], top_x, box[2], bottom_x]
@@ -145,7 +181,12 @@ def optimize_box(box, mean, inv_cov, depth, reference_rectangle, constraint_box,
                             depth[top_y:bottom_y, top_x:ceil(bottom_x)],
                             (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
                         )
-                        score = ((crop - median(crop)).ravel() - mean).T @ inv_cov @ ((crop - median(crop)).ravel() - mean)
+                        instance = resize(
+                            instances[top_y:bottom_y, top_x:ceil(bottom_x)],
+                            (reference_rectangle[1], reference_rectangle[0]), interpolation=INTER_NEAREST
+                        )
+                        normalized_crop = depth_normalization_func(crop, instance)
+                        score = (normalized_crop.ravel() - mean).T @ inv_cov @ (normalized_crop.ravel() - mean)
                         if score < min_score:
                             min_score = score
                             optimal_box = [top_y, top_x, bottom_y, ceil(bottom_x)]
@@ -155,13 +196,23 @@ def optimize_box(box, mean, inv_cov, depth, reference_rectangle, constraint_box,
     return optimal_box
 
 class CarGenerator:
-    def __init__(self, base_dir, date = None, reference_rectangle = (64, 128), min_original_rectangle = (16, 32), mean = None, cov = None, optimize_direction = Direction.ALL):
+    def __init__(self, 
+                 base_dir, 
+                 date = None, 
+                 reference_rectangle = (64, 128), 
+                 min_original_rectangle = (16, 32), 
+                 depth_normalization_func=None, 
+                 mean = None, 
+                 cov = None, 
+                 optimize_direction = Direction.ALL
+                ):
         if date is not None and date not in listdir(base_dir):
             raise ValueError
         self._bg_object = BundleGenerator(base_dir)
         self.bundle_generator = self._bg_object.load(date)
         self.reference_rectangle = reference_rectangle
         self.min_original_rectangle = min_original_rectangle
+        self.depth_normalization_func = depth_normalization_func if depth_normalization_func is not None else lambda depth, instance : depth / median(depth)
         self.mean = mean
         self.cov = cov
         self.inv_cov = inv(cov) if cov is not None else None
@@ -178,18 +229,13 @@ class CarGenerator:
                 loosened_box = loosen_box(box, self.reference_rectangle, bundle.image.shape)
                 if not loosened_box:
                     continue
-                if (self.mean is not None) and (self.inv_cov is not None):
-                    optimized_box = optimize_box(
-                        box=loosened_box, 
-                        mean=self.mean,
-                        inv_cov=self.inv_cov, 
-                        depth=bundle.depth, 
-                        reference_rectangle=self.reference_rectangle, 
-                        constraint_box=box, 
-                        base_image_shape=bundle.image.shape, 
-                        direction=self.optimize_direction)
-                else:
-                    optimized_box = loosened_box
+
+                optimized_box = loosened_box if (self.mean is None or self.inv_cov is None) else optimize_box(
+                    box=loosened_box, mean=self.mean, inv_cov=self.inv_cov, depth=bundle.depth,
+                    instances=bundle.instances, reference_rectangle=self.reference_rectangle,
+                    constraint_box=box, depth_normalization_func=self.depth_normalization_func,
+                    base_image_shape=bundle.image.shape, direction=self.optimize_direction
+                )
 
                 image = resize(bundle.image[optimized_box[0]:optimized_box[2], optimized_box[1]:optimized_box[3], :], (self.reference_rectangle[1], self.reference_rectangle[0]), interpolation=INTER_NEAREST)
 
@@ -208,4 +254,4 @@ class CarGenerator:
                     [0, 0, 1]
                 ]) @ (bundle.camera + block([zeros((3,2)), array([-optimized_box[1], -optimized_box[0], 0]).reshape((-1,1))]))
 
-                yield Car(image, depth, instance, camera, bundle.camera, i)
+                yield Car(image, depth, instance, camera, bundle.camera, i, self.depth_normalization_func)

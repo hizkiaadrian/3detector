@@ -10,11 +10,14 @@ import os
 import pickle
 
 class Car:
-    def __init__(self, image, depth, instance, camera, base_camera, car_index):
+    def __init__(self, image, depth, instance, camera, base_camera, car_index, depth_normalization_func=None):
         self.image = image
         self.depth = depth
-        self.normalized_depth = depth - median(depth)
         self.instance = instance
+        if not depth_normalization_func:
+            self.normalized_depth = depth - median(depth)
+        else:
+            self.normalized_depth = depth_normalization_func(self.depth, self.instance)
         self.camera = camera
         self.base_camera = base_camera
         self.car_index = car_index
