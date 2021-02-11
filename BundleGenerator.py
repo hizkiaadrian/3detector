@@ -48,12 +48,12 @@ class DataBundle:
         self.boxes = [
             [floor(box[0]*height_ratio), floor(box[1]*width_ratio), ceil(box[2]*height_ratio), ceil(box[3]*width_ratio)] 
             for box in self.boxes
-            ]
+        ]
 
         transformation_matrix = np.array([
                                     [width_ratio, 0, 0],
                                     [0, height_ratio, 0],
-                                    [0, 0, 1]int(self.reference_rectangle[0] * self.reference_rectangle[1])
+                                    [0, 0, 1]
                                 ])
         self.camera = transformation_matrix @ self.camera
         

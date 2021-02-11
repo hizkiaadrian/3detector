@@ -192,7 +192,7 @@ def optimize_box(box,
                             optimal_box = [top_y, top_x, bottom_y, ceil(bottom_x)]
                     else:
                         break
-
+                
     return optimal_box
 
 class CarGenerator:
@@ -200,7 +200,7 @@ class CarGenerator:
                  base_dir, 
                  date = None, 
                  reference_rectangle = (64, 128), 
-                 min_original_rectangle = (16, 32), 
+                 min_original_rectangle = (32,64), 
                  depth_normalization_func=None, 
                  mean = None, 
                  cov = None, 
