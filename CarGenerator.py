@@ -208,8 +208,7 @@ class CarGenerator:
                 ):
         if date is not None and date not in listdir(base_dir):
             raise ValueError
-        self._bg_object = BundleGenerator(base_dir)
-        self.bundle_generator = self._bg_object.load(date)
+        self.bundle_generator = BundleGenerator(base_dir, date)
         self.reference_rectangle = reference_rectangle
         self.min_original_rectangle = min_original_rectangle
         self.depth_normalization_func = depth_normalization_func if depth_normalization_func is not None else lambda depth, instance : depth / median(depth)
@@ -217,8 +216,15 @@ class CarGenerator:
         self.cov = cov
         self.inv_cov = inv(cov) if cov is not None else None
         self.optimize_direction = optimize_direction
+        self._internal_generator = self._load_dataset()
+    
+    def __next__(self):
+        return next(self._internal_generator)
 
-    def load_dataset(self):
+    def __iter__(self):
+        return self
+
+    def _load_dataset(self):
         for bundle in self.bundle_generator:
             valid_boxes = get_valid_boxes(bundle.boxes, bundle.image.shape)
             for i, box in enumerate(valid_boxes):

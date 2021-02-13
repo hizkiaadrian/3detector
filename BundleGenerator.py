@@ -43,19 +43,15 @@ class DataBundle:
         self.instances = cv2.resize(
             self.instances, 
             (self.depth.shape[1], self.depth.shape[0]),
-            interpolation=cv2.INTER_NEAREST)
-        
+            interpolation=cv2.INTER_NEAREST) 
         self.boxes = [
             [floor(box[0]*height_ratio), floor(box[1]*width_ratio), ceil(box[2]*height_ratio), ceil(box[3]*width_ratio)] 
             for box in self.boxes
         ]
-
-        transformation_matrix = np.array([
-                                    [width_ratio, 0, 0],
-                                    [0, height_ratio, 0],
-                                    [0, 0, 1]
-                                ])
-        self.camera = transformation_matrix @ self.camera
+        self.camera = np.array([
+                                [width_ratio, 0, 0],
+                                [0, height_ratio, 0],
+                                [0, 0, 1]]) @ self.camera
         
 class BundleGenerator:
     def __init__(self, base_dir, dates=None):

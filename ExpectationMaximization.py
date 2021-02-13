@@ -37,7 +37,7 @@ class ExpectationMaximization:
             min_original_rectangle = self.min_original_rectangle,
             depth_normalization_func = self.depth_normalization_func, 
             mean = None, 
-            cov = None).load_dataset()
+            cov = None)
         print("Generating samples...")
         D = np.array([_help(i,x) for i,x in enumerate(generator)]).T
 
@@ -63,7 +63,7 @@ class ExpectationMaximization:
                 mean=mean,
                 cov=cov,
                 optimize_direction=optimize_direction
-            ).load_dataset()
+            )
 
             temp_D = np.array([_help(i,x) for i,x in enumerate(generator)]).T
             if temp_D.shape[1] < (self.reference_rectangle[0] * self.reference_rectangle[1]):
@@ -100,7 +100,7 @@ class ExpectationMaximization:
                 depth_normalization_func=self.depth_normalization_func,
                 mean=self._result['mean'],
                 cov=self._result['cov'],
-                optimize_direction=self._result['optimize_direction']).load_dataset()
+                optimize_direction=self._result['optimize_direction'])._load_dataset()
 
         if not os.path.exists(dataset_save_folder):
             os.mkdir(dataset_save_folder)
