@@ -1,4 +1,5 @@
 from CarGenerator import CarGenerator, Direction
+from DepthNormalization import divide_median
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
@@ -12,18 +13,18 @@ class ExpectationMaximization:
     def __init__(
         self, 
         base_path, 
-        date=None, 
+        dates=None, 
         reference_rectangle=(64,128), 
         min_original_rectangle=(32,64),
         depth_normalization_func=None, 
         max_iters=10):
         self.base_path = base_path
-        self.date = date
+        self.dates = dates
         self.reference_rectangle = reference_rectangle
         self.min_original_rectangle = min_original_rectangle
-        self.depth_normalization_func= depth_normalization_func if depth_normalization_func is not None else lambda depth, instance : depth / np.median(depth)
+        self.depth_normalization_func= depth_normalization_func if depth_normalization_func is not None else divide_median
         self.max_iters = max_iters
-        self._result = None
+        self.__result = None
 
     def run(self):
         def _help(i, x):
@@ -32,7 +33,7 @@ class ExpectationMaximization:
 
         generator = CarGenerator(
             self.base_path, 
-            date = self.date, 
+            dates = self.dates, 
             reference_rectangle = self.reference_rectangle, 
             min_original_rectangle = self.min_original_rectangle,
             depth_normalization_func = self.depth_normalization_func, 
@@ -56,7 +57,7 @@ class ExpectationMaximization:
 
             generator = CarGenerator(
                 self.base_path,
-                date=self.date,
+                dates=self.dates,
                 reference_rectangle=self.reference_rectangle,
                 min_original_rectangle=self.min_original_rectangle,
                 depth_normalization_func=self.depth_normalization_func,
@@ -85,7 +86,10 @@ class ExpectationMaximization:
                 break
 
         print(f"EM stopped with a score of {score}")
-        self._result = {"D": D, "mean":mean, "cov":cov, "optimize_direction": optimdir}
+        self.__result = {"D": D, "mean":mean, "cov":cov, "optimize_direction": optimdir}
+
+    def get_result(self):
+        return self.__result
 
     def save(self, dataset_save_folder):
         if not self._result:
@@ -94,13 +98,13 @@ class ExpectationMaximization:
         np.savez("/scratch/local/hdd/hizkia/em.npz", mean=self._result["mean"], cov=self._result["cov"], optimdir = np.array([0 if not self._result['optimize_direction'] else self._result['optimize_direction'].value]))
 
         generator = CarGenerator(self.base_path,
-                date=self.date,
+                dates=self.dates,
                 reference_rectangle=self.reference_rectangle,
                 min_original_rectangle=self.min_original_rectangle,
                 depth_normalization_func=self.depth_normalization_func,
                 mean=self._result['mean'],
                 cov=self._result['cov'],
-                optimize_direction=self._result['optimize_direction'])._load_dataset()
+                optimize_direction=self._result['optimize_direction']).__load_dataset()
 
         if not os.path.exists(dataset_save_folder):
             os.mkdir(dataset_save_folder)

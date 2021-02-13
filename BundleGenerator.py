@@ -17,7 +17,7 @@ class DataBundle:
         self.boxes = np.load(img_path.replace('image', 'panoptic').replace('jpg','npz'))['boxes']
         self.instances = np.load(img_path.replace('image', 'panoptic').replace('jpg','npz'))['instances']
 
-        self._resize()
+        self.__resize()
 
     def plot(self):
         fig, ax = plt.subplots(3, figsize=(70,30))
@@ -32,7 +32,7 @@ class DataBundle:
 
         plt.show()
 
-    def _resize(self):
+    def __resize(self):
         width_ratio = self.depth.shape[1] / self.image.shape[1]
         height_ratio = self.depth.shape[0] / self.image.shape[0]
 
@@ -60,15 +60,15 @@ class BundleGenerator:
         self.dates = available_dates if not dates else dates
         if not all([x in available_dates for x in self.dates]):
             raise ValueError
-        self._internal_generator = self._yield_images()
+        self.__internal_generator = self.__yield_images()
 
     def __next__(self):
-        return next(self._internal_generator)
+        return next(self.__internal_generator)
 
     def __iter__(self):
         return self
 
-    def _yield_images(self):
+    def __yield_images(self):
         for date in self.dates:
             drives = sorted(
                 list(

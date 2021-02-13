@@ -198,7 +198,7 @@ def optimize_box(box,
 class CarGenerator:
     def __init__(self, 
                  base_dir, 
-                 date = None, 
+                 dates = None, 
                  reference_rectangle = (64, 128), 
                  min_original_rectangle = (32,64), 
                  depth_normalization_func=None, 
@@ -206,25 +206,25 @@ class CarGenerator:
                  cov = None, 
                  optimize_direction = Direction.ALL
                 ):
-        if date is not None and date not in listdir(base_dir):
+        if dates is not None and not all([date in listdir(base_dir) for date in dates]):
             raise ValueError
-        self.bundle_generator = BundleGenerator(base_dir, date)
+        self.bundle_generator = BundleGenerator(base_dir, dates)
         self.reference_rectangle = reference_rectangle
         self.min_original_rectangle = min_original_rectangle
-        self.depth_normalization_func = depth_normalization_func if depth_normalization_func is not None else lambda depth, instance : depth / median(depth)
+        self.depth_normalization_func = depth_normalization_func
         self.mean = mean
         self.cov = cov
         self.inv_cov = inv(cov) if cov is not None else None
         self.optimize_direction = optimize_direction
-        self._internal_generator = self._load_dataset()
+        self.__internal_generator = self.__load_dataset()
     
     def __next__(self):
-        return next(self._internal_generator)
+        return next(self.__internal_generator)
 
     def __iter__(self):
         return self
 
-    def _load_dataset(self):
+    def __load_dataset(self):
         for bundle in self.bundle_generator:
             valid_boxes = get_valid_boxes(bundle.boxes, bundle.image.shape)
             for i, box in enumerate(valid_boxes):
