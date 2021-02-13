@@ -58,23 +58,22 @@ class DataBundle:
         self.camera = transformation_matrix @ self.camera
         
 class BundleGenerator:
-    def __init__(self, base_dir):
-        self.dates = sorted(listdir(base_dir))
+    def __init__(self, base_dir, dates=None):
+        available_dates = sorted(listdir(base_dir))
         self.base_dir = base_dir
-
-    def load(self,date=None):
-        if date is None:
-            return self._yield_images()
-
-        elif date in self.dates:
-            return self._yield_images(date)
-
-        else:
+        self.dates = available_dates if not dates else dates
+        if not all([x in available_dates for x in self.dates]):
             raise ValueError
+        self._internal_generator = self._yield_images()
 
-    def _yield_images(self, date = None):
-        dates = self.dates if not date else [date]
-        for date in dates:
+    def __next__(self):
+        return next(self._internal_generator)
+
+    def __iter__(self):
+        return self
+
+    def _yield_images(self):
+        for date in self.dates:
             drives = sorted(
                 list(
                     map(
