@@ -1,13 +1,15 @@
-from CarGenerator import CarGenerator, Direction
+from CarGenerator import CarGenerator
+from BoxOperations import Direction
 from DepthNormalization import divide_median
-import numpy as np
-import matplotlib.pyplot as plt
-import pickle
-import os
+from numpy import apply_along_axis, array, cov, savez
+from numpy.linalg import inv
+from pickle import dump, HIGHEST_PROTOCOL
+from os import mkdir
+from os import exists
 
 def calculate_EM_score(normalized_samples, cov):
-    inv_cov = np.linalg.inv(cov)
-    return sum(np.apply_along_axis(lambda x: x.T @ inv_cov @ x, 0, normalized_samples))
+    inv_cov = inv(cov)
+    return sum(apply_along_axis(lambda x: x.T @ inv_cov @ x, 0, normalized_samples))
 
 class ExpectationMaximization:
     def __init__(
@@ -40,13 +42,13 @@ class ExpectationMaximization:
             mean = None, 
             cov = None)
         print("Generating samples...")
-        D = np.array([_help(i,x) for i,x in enumerate(generator)]).T
+        D = array([_help(i,x) for i,x in enumerate(generator)]).T
 
         if D.shape[1] < (self.reference_rectangle[0] * self.reference_rectangle[1]):
             raise ValueError("Number of samples is too little resulting in a singular covariance matrix")
         mean = D.mean(axis = 1)
         A = D - mean.reshape((-1,1))
-        cov = np.cov(A)
+        cov = cov(A)
 
         score = calculate_EM_score(A, cov)
         optimdir = None
@@ -66,13 +68,13 @@ class ExpectationMaximization:
                 optimize_direction=optimize_direction
             )
 
-            temp_D = np.array([_help(i,x) for i,x in enumerate(generator)]).T
+            temp_D = array([_help(i,x) for i,x in enumerate(generator)]).T
             if temp_D.shape[1] < (self.reference_rectangle[0] * self.reference_rectangle[1]):
                 raise ValueError("Number of samples is too little resulting in a singular covariance matrix")
             
             temp_mean = temp_D.mean(axis=1)
             temp_A = temp_D - temp_mean.reshape((-1,1))
-            temp_cov = np.cov(temp_A)
+            temp_cov = cov(temp_A)
 
             temp_score = calculate_EM_score(temp_A, temp_cov)
             print(f"EM iteration {iter_num} yields a score of {temp_score}")
@@ -95,7 +97,7 @@ class ExpectationMaximization:
         if not self._result:
             raise ValueError("You have not run an EM iteration yet")
 
-        np.savez("/scratch/local/hdd/hizkia/em.npz", mean=self._result["mean"], cov=self._result["cov"], optimdir = np.array([0 if not self._result['optimize_direction'] else self._result['optimize_direction'].value]))
+        savez("/scratch/local/hdd/hizkia/em.npz", mean=self._result["mean"], cov=self._result["cov"], optimdir = array([0 if not self._result['optimize_direction'] else self._result['optimize_direction'].value]))
 
         generator = CarGenerator(self.base_path,
                 dates=self.dates,
@@ -106,10 +108,10 @@ class ExpectationMaximization:
                 cov=self._result['cov'],
                 optimize_direction=self._result['optimize_direction']).__load_dataset()
 
-        if not os.path.exists(dataset_save_folder):
-            os.mkdir(dataset_save_folder)
+        if not exists(dataset_save_folder):
+            mkdir(dataset_save_folder)
 
         for i, car in enumerate(generator):
             with open(f"{dataset_save_folder}/{i}.pkl", 'wb') as file:
-                pickle.dump(car, file, pickle.HIGHEST_PROTOCOL)
+                dump(car, file, HIGHEST_PROTOCOL)
             print(f"Saving: {i}", end="\r")

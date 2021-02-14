@@ -3,7 +3,7 @@ from numpy import multiply, array, median, meshgrid, arange, zeros, dstack
 from numpy.linalg import inv
 from math import floor, ceil
 from scipy.stats import mode
-import plotly.graph_objects as go
+from plotly.graph_objects import Figure, Scatter3d
 
 class Car:
     def __init__(self, image, depth, instance, camera, base_camera, car_index, depth_normalization_func):
@@ -41,7 +41,7 @@ class Car:
             for a, (i, j) in enumerate(zip(x, y)):
                 z[a] = inv_camera @ array([i, j, 1]) * self.depth[j, i]
             
-            fig = go.Figure(data=go.Scatter3d(x=z[:,0].ravel(), y=z[:,1].ravel(), z=z[:,2].ravel(),
+            fig = Figure(data=Scatter3d(x=z[:,0].ravel(), y=z[:,1].ravel(), z=z[:,2].ravel(),
                                             mode='markers',
                                             marker=dict(size=1)        
                                             )
@@ -56,7 +56,7 @@ class Car:
             for i,j in zip(x.ravel(), y.ravel()):
                 z[j, i] = inv_camera @ array([i, j, 1]) * self.depth[j, i]
 
-            fig = go.Figure(data=go.Scatter3d(x=z[:,:,0].ravel(), y=z[:,:,1].ravel(), z=z[:,:,2].ravel(),
+            fig = Figure(data=Scatter3d(x=z[:,:,0].ravel(), y=z[:,:,1].ravel(), z=z[:,:,2].ravel(),
                                             mode='markers',
                                             marker=dict(size=1, color=self.instance.ravel(), colorscale='Viridis')        
                                             )
