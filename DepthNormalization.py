@@ -4,11 +4,11 @@ from scipy.stats import mode
 def subtract_median(depth, instance):
     return depth - median(depth)
 
-def dubtract_median_masked(depth, instance):
+def subtract_median_masked(depth, instance):
     instance_num = _get_instance_num(instance)
-    median = median(depth[instance == instance_num])
-    maskval = (max(depth[instance == instance_num]) - median) * 1.1
-    return vectorize(lambda d, i: d - median if i == instance_num else maskval)
+    depth_median = median(depth[instance == instance_num])
+    maskval = (max(depth[instance == instance_num]) - depth_median) * 1.1
+    return vectorize(lambda d, i: d - depth_median if i == instance_num else maskval)(depth, instance)
 
 def divide_median(depth, instance):
     return depth / median(depth)
@@ -18,6 +18,9 @@ def divide_median_masked(depth, instance):
     return multiply(depth, instance == instance_num) / median(depth[instance == instance_num])
 
 def rescale_minmax(depth, instance):
+    return (depth - min(depth)) / (max(depth) - min(depth))
+
+def rescale_minmax_masked(depth, instance):
     instance_num = mode(instance[instance != 0])[0][0]
     car_depth = depth[instance == instance_num]
     minval, maxval = min(car_depth), max(car_depth)

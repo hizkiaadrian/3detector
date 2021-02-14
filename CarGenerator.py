@@ -16,7 +16,7 @@ class CarGenerator:
                  depth_normalization_func=None, 
                  mean = None, 
                  cov = None, 
-                 optimize_direction = Direction.ALL
+                 optimize_direction = BoxOperations.Direction.ALL
                 ):
         if dates is not None and not all([date in listdir(base_dir) for date in dates]):
             raise ValueError

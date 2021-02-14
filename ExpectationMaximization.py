@@ -1,11 +1,12 @@
 from CarGenerator import CarGenerator
 from BoxOperations import Direction
 from DepthNormalization import divide_median
-from numpy import apply_along_axis, array, cov, savez
+from numpy import apply_along_axis, array, savez
+import numpy as np
 from numpy.linalg import inv
 from pickle import dump, HIGHEST_PROTOCOL
 from os import mkdir
-from os import exists
+from os.path import exists
 
 def calculate_EM_score(normalized_samples, cov):
     inv_cov = inv(cov)
@@ -48,7 +49,7 @@ class ExpectationMaximization:
             raise ValueError("Number of samples is too little resulting in a singular covariance matrix")
         mean = D.mean(axis = 1)
         A = D - mean.reshape((-1,1))
-        cov = cov(A)
+        cov = np.cov(A)
 
         score = calculate_EM_score(A, cov)
         optimdir = None
@@ -74,7 +75,7 @@ class ExpectationMaximization:
             
             temp_mean = temp_D.mean(axis=1)
             temp_A = temp_D - temp_mean.reshape((-1,1))
-            temp_cov = cov(temp_A)
+            temp_cov = np.cov(temp_A)
 
             temp_score = calculate_EM_score(temp_A, temp_cov)
             print(f"EM iteration {iter_num} yields a score of {temp_score}")
