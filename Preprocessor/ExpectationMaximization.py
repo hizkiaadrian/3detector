@@ -1,6 +1,6 @@
-from CarGenerator import CarGenerator
-from BoxOperations import Direction
-from DepthNormalization import divide_median
+from Preprocessor.CarGenerator import CarGenerator
+from Preprocessor.BoxOperations import Direction
+from Preprocessor.DepthNormalization import divide_median
 from numpy import apply_along_axis, array, savez
 import numpy as np
 from numpy.linalg import inv

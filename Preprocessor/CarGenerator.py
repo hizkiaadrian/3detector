@@ -1,11 +1,11 @@
-from BundleGenerator import BundleGenerator
-from Car import Car
+from Preprocessor.BundleGenerator import BundleGenerator
+from Preprocessor.Car import Car
 from os import listdir
 from cv2 import resize, INTER_NEAREST
 from numpy import array, zeros, block, median
 from numpy.linalg import inv
 from math import ceil
-import BoxOperations
+import Preprocessor.BoxOperations as BoxOperations
 
 class CarGenerator:
     def __init__(self, 
