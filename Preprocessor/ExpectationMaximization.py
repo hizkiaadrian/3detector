@@ -27,7 +27,7 @@ class ExpectationMaximization:
         self.min_original_rectangle = min_original_rectangle
         self.depth_normalization_func= depth_normalization_func if depth_normalization_func is not None else divide_median
         self.max_iters = max_iters
-        self.__result = None
+        self.__result = {"mean":None, "cov":None, "optimize_direction": None}
 
     def run(self):
         def _help(i, x):
@@ -85,21 +85,16 @@ class ExpectationMaximization:
                 cov = temp_cov
                 score = temp_score
                 optimdir = optimize_direction
+                self.__result = {"mean":mean, "cov":cov, "optimize_direction": optimdir}
             else:
                 break
 
         print(f"EM stopped with a score of {score}")
-        self.__result = {"D": D, "mean":mean, "cov":cov, "optimize_direction": optimdir}
 
     def get_result(self):
         return self.__result
 
     def save(self, dataset_save_folder):
-        if not self._result:
-            raise ValueError("You have not run an EM iteration yet")
-
-        savez("/scratch/local/hdd/hizkia/em.npz", mean=self._result["mean"], cov=self._result["cov"], optimdir = array([0 if not self._result['optimize_direction'] else self._result['optimize_direction'].value]))
-
         generator = CarGenerator(self.base_path,
                 dates=self.dates,
                 reference_rectangle=self.reference_rectangle,

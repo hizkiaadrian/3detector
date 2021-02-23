@@ -4,6 +4,10 @@ from numpy.linalg import inv
 from math import floor, ceil
 from scipy.stats import mode
 from plotly.graph_objects import Figure, Scatter3d
+import torch
+from torch.utils.data import Dataset
+import os
+import pickle
 
 class Car:
     def __init__(self, image, depth, instance, camera, base_camera, car_index, depth_normalization_func):
@@ -92,3 +96,19 @@ class Car:
         top_left_vertex_y = round(base_camera[1, 2] - (self.camera[1, 2] * original_height) / ref_height)
 
         return [top_left_vertex_y, top_left_vertex_x, top_left_vertex_y + original_height, top_left_vertex_x + original_width]
+
+class CarDataset(Dataset):
+    def __init__(self, base_path):
+        self.base_path = base_path
+        
+    def __len__(self):
+        return len(os.listdir(self.base_path))
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        with open(f'{self.base_path}/{idx}.pkl','rb') as input:
+            car = pickle.load(input)
+            
+        return car
