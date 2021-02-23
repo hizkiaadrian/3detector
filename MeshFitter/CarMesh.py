@@ -2,6 +2,7 @@ import numpy as np
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import torch
+import torch.nn as nn
 from pytorch3d.utils import ico_sphere
 from pytorch3d.renderer import (
     TexturesVertex,
@@ -19,12 +20,22 @@ if torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
+class MeshRendererWithDepth(nn.Module):
+    def __init__(self, rasterizer, shader):
+        super().__init__()
+        self.rasterizer = rasterizer
+        self.shader = shader
+        
+    def forward(self, meshes_world, **kwargs) -> torch.Tensor:
+        fragments = self.rasterizer(meshes_world, **kwargs)
+        images = self.shader(fragments, meshes_world, **kwargs)
+        return images, fragments.zbuf
+
 class CarMesh:
     def __init__(self):
         self.icosphere = ico_sphere(4, device)
         self.icosphere.textures = TexturesVertex(torch.ones_like(self.icosphere.verts_packed())[None])
 
-    def plot(self):
         R, T = look_at_view_transform(dist=-2.5, elev=0, azim=0)
         camera = OpenGLPerspectiveCameras(device=device, R=R, T=T)
         raster_settings = RasterizationSettings(
@@ -34,7 +45,7 @@ class CarMesh:
             perspective_correct=False
         )
 
-        renderer = MeshRenderer(
+        self.renderer = MeshRendererWithDepth(
             rasterizer=MeshRasterizer(
                 cameras=camera,
                 raster_settings=raster_settings
@@ -45,9 +56,14 @@ class CarMesh:
             )
         )
 
-        image = renderer(self.icosphere, cameras=camera)
+        self.image, self.depth = self.renderer(self.icosphere, cameras=camera)
 
-        plt.imshow(image.cpu().numpy()[0])
+    def plot(self):
+        fig, ax = plt.subplots(2, figsize=(10,10))
+        ax[0].imshow(self.image.cpu().numpy()[0])
+        ax[0].set_title("Image")
+        ax[1].imshow(self.depth.cpu().numpy()[0])
+        ax[1].set_title("Depth")
 
     def plot_3d(self):
         x,y,z = self.icosphere.verts_packed().cpu().numpy().T
