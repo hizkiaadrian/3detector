@@ -56,7 +56,7 @@ class ExpectationMaximization:
         print(f"Initializing EM yields a score of {score}...")
 
         for iter_num in range(self.max_iters):
-            optimize_direction = Direction(iter_num % 2)
+            optimize_direction = Direction(iter_num % 2 + 1)
 
             generator = CarGenerator(
                 self.base_path,
@@ -100,9 +100,9 @@ class ExpectationMaximization:
                 reference_rectangle=self.reference_rectangle,
                 min_original_rectangle=self.min_original_rectangle,
                 depth_normalization_func=self.depth_normalization_func,
-                mean=self._result['mean'],
-                cov=self._result['cov'],
-                optimize_direction=self._result['optimize_direction']).__load_dataset()
+                mean=self.__result['mean'],
+                cov=self.__result['cov'],
+                optimize_direction=self.__result['optimize_direction'])
 
         if not exists(dataset_save_folder):
             mkdir(dataset_save_folder)

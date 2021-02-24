@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import Dataset
 import os
 import pickle
+from Preprocessor.DepthNormalization import _get_instance_num
 
 class Car:
     def __init__(self, image, depth, instance, camera, base_camera, car_index, depth_normalization_func):
@@ -18,6 +19,12 @@ class Car:
         self.camera = camera
         self.base_camera = base_camera
         self.car_index = car_index
+
+    def get_depth_map(self):
+        depth = self.depth.copy()
+        depth[self.instance != _get_instance_num(self.instance)] = -1
+
+        return depth
 
     def plot(self, masked=True):
         if masked:

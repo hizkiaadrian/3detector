@@ -28,8 +28,8 @@ class MeshRendererWithDepth(nn.Module):
         
     def forward(self, meshes_world, **kwargs) -> torch.Tensor:
         fragments = self.rasterizer(meshes_world, **kwargs)
-        images = self.shader(fragments, meshes_world, **kwargs)
-        return images, fragments.zbuf
+        image = self.shader(fragments, meshes_world, **kwargs)
+        return image, fragments.zbuf
 
 class CarMesh:
     def __init__(self):
@@ -40,9 +40,9 @@ class CarMesh:
         camera = OpenGLPerspectiveCameras(device=device, R=R, T=T)
         raster_settings = RasterizationSettings(
             image_size=(64,128), 
-            blur_radius=0, 
+            blur_radius=np.log(1. / 1e-4 - 1.)*1e-4,
             faces_per_pixel=1, 
-            perspective_correct=False
+            perspective_correct=True
         )
 
         self.renderer = MeshRendererWithDepth(
