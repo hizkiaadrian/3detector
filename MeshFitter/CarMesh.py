@@ -6,13 +6,13 @@ import torch.nn as nn
 from pytorch3d.utils import ico_sphere
 from pytorch3d.renderer import (
     TexturesVertex,
-    look_at_view_transform,
-    OpenGLPerspectiveCameras,
+    PerspectiveCameras,
     RasterizationSettings,
     MeshRenderer,
     MeshRasterizer,
     SoftPhongShader
 )
+from pytorch3d.vis.plotly_vis import plot_scene, AxisArgs
 
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
@@ -32,12 +32,20 @@ class MeshRendererWithDepth(nn.Module):
         return image, fragments.zbuf
 
 class CarMesh:
-    def __init__(self):
+    def __init__(self, K):
+        '''
+        K is a 3x3 matrix, needs to be expanded to 4 by 4
+        '''
         self.icosphere = ico_sphere(4, device)
-        self.icosphere.textures = TexturesVertex(torch.ones_like(self.icosphere.verts_packed())[None])
+        self.icosphere.textures = TexturesVertex(torch.full(self.icosphere.verts_packed().shape, 0.5, device=device)[None])
 
-        R, T = look_at_view_transform(dist=-2.5, elev=0, azim=0)
-        camera = OpenGLPerspectiveCameras(device=device, R=R, T=T)
+        K_matrix = np.block([
+            [
+                [K, np.zeros((3,1))],
+                [np.zeros((1,3)), 1]
+            ]
+        ])
+        self.camera = PerspectiveCameras(device=device, K=K_matrix)
         raster_settings = RasterizationSettings(
             image_size=(64,128), 
             blur_radius=np.log(1. / 1e-4 - 1.)*1e-4,
@@ -47,16 +55,16 @@ class CarMesh:
 
         self.renderer = MeshRendererWithDepth(
             rasterizer=MeshRasterizer(
-                cameras=camera,
+                cameras=self.camera,
                 raster_settings=raster_settings
             ),
             shader=SoftPhongShader(
                 device=device,
-                cameras=camera
+                cameras=self.camera
             )
         )
 
-        self.image, self.depth = self.renderer(self.icosphere, cameras=camera)
+        self.image, self.depth = self.renderer(self.icosphere, cameras=self.camera)
 
     def plot(self):
         fig, ax = plt.subplots(2, figsize=(10,10))
@@ -66,7 +74,17 @@ class CarMesh:
         ax[1].set_title("Depth")
 
     def plot_3d(self):
-        x,y,z = self.icosphere.verts_packed().cpu().numpy().T
-        i,j,k = self.icosphere.faces_packed().cpu().numpy().T
-        fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, colorscale=[[0, 'gold'], [1, 'magenta']], intensity=y)])
+        fig = plot_scene({
+            "World view": {
+                "mesh": self.icosphere,
+                "camera": self.camera
+            }
+        },
+        xaxis={"backgroundcolor":"rgb(200, 200, 230)"},
+        yaxis={"backgroundcolor":"rgb(230, 200, 200)"},
+        zaxis={"backgroundcolor":"rgb(200, 230, 200)"}, 
+        axis_args=AxisArgs(showgrid=True, showticklabels=True),
+        viewpoint_cameras=self.camera
+        )
+
         return fig

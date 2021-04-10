@@ -13,7 +13,7 @@ expectationMaximizer = ExpectationMaximization(
     depth_normalization_func=depth_normalization_func
 )
 
-expectationMaximizer.run()
+# expectationMaximizer.run()
 
 dataset_save_folder = "/scratch/local/hdd/hizkia/cars"
 
