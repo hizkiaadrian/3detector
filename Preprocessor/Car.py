@@ -94,19 +94,3 @@ class Car:
         top_left_vertex_y = round(self.base_camera[1, 2] - (self.camera[1, 2] * original_height) / ref_height)
 
         return [top_left_vertex_y, top_left_vertex_x, top_left_vertex_y + original_height, top_left_vertex_x + original_width]
-
-class CarDataset(Dataset):
-    def __init__(self, base_path):
-        self.base_path = base_path
-        
-    def __len__(self):
-        return len(os.listdir(self.base_path))
-    
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-        
-        with open(f'{self.base_path}/{idx}.pkl','rb') as input:
-            car = pickle.load(input)
-            
-        return car
